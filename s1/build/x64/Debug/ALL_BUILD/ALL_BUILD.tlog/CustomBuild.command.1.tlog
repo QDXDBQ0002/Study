@@ -1,6 +1,6 @@
-^E:\STUDY\S1\CMAKELISTS.TXT
+^E:\STUDY\STUDY\S1\CMAKELISTS.TXT
 setlocal
-D:\cmake\bin\cmake.exe -SE:/study/s1 -BE:/study/s1/build --check-stamp-file E:/study/s1/build/CMakeFiles/generate.stamp
+D:\cmake\bin\cmake.exe -SE:/study/Study/s1 -BE:/study/Study/s1/build --check-stamp-file E:/study/Study/s1/build/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone

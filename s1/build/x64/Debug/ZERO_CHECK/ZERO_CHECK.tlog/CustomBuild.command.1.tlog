@@ -1,6 +1,6 @@
-^E:\STUDY\S1\BUILD\CMAKEFILES\C3CE7F7BB999C0FE6F081FFF8F8A9E87\GENERATE.STAMP.RULE
+^E:\STUDY\STUDY\S1\BUILD\CMAKEFILES\1AA2E89523262118ED043BF94065A43F\GENERATE.STAMP.RULE
 setlocal
-D:\cmake\bin\cmake.exe -SE:/study/s1 -BE:/study/s1/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file E:/study/s1/build/DirectXTriangle.sln
+D:\cmake\bin\cmake.exe -SE:/study/Study/s1 -BE:/study/Study/s1/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file E:/study/Study/s1/build/DirectXTriangle.sln
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone

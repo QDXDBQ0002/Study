@@ -18,8 +18,11 @@ include_directories("${WINDOWS_SDK_DIR}/Include/${WINDOWS_SDK_VERSION}/shared")
 include_directories("${WINDOWS_SDK_DIR}/Include/${WINDOWS_SDK_VERSION}/um")
 include_directories("${WINDOWS_SDK_DIR}/Include/${WINDOWS_SDK_VERSION}/winrt")
 
+# Add all source files
+file(GLOB SOURCES "src/*.cpp")
+
 # Add the executable
-add_executable(DirectXTriangle WIN32 src/main.cpp)
+add_executable(DirectXTriangle WIN32 ${SOURCES})
 
 # Link DirectX libraries
 target_link_libraries(DirectXTriangle 
