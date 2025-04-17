@@ -1,6 +1,7 @@
 #ifndef _APPLICATIONCLASS_H_
 #define _APPLICATIONCLASS_H_
 #include <windows.h>
+#include "D3DRender.h"
 
 const bool FULL_SCREEN = true;
 const bool VSYNC_ENABLED = true;
@@ -11,6 +12,7 @@ class Application
 {
     private:
         bool Render();
+        D3DRender* m_Direct3D;
     public:
         Application();
         Application(const Application&);
