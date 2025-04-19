@@ -1,6 +1,7 @@
 #include "Application.h"
 #include <d3d11.h>
 #include <DirectXMath.h>
+#include <fstream>
 using namespace DirectX;
 
 Application::Application() : m_Direct3D(0)
@@ -52,7 +53,7 @@ bool Application::Frame()
 
 bool Application::Render()
 {
-    m_Direct3D->BeginScene(0.5f, 0.5f, 0.5f, 1.0f);
+    m_Direct3D->BeginScene(1.0f, 0.5f, 0.5f, 1.0f);
     m_Direct3D->EndScene();
     return true;
 }   

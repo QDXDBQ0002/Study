@@ -106,7 +106,7 @@ bool D3DRender::Initialize(int& screenWidth, int& screenHeight, bool vsync, HWND
     }
 
     //获取适配器描述。
-    result = adapterOutput->GetDesc(&adapterDesc);
+    result = adapter->GetDesc(&adapterDesc);
     if(FAILED(result))
     {
         return false;
@@ -378,8 +378,211 @@ bool D3DRender::Initialize(int& screenWidth, int& screenHeight, bool vsync, HWND
     //初始化视口。
     m_viewport.Width = (float)screenWidth;
     m_viewport.Height = (float)screenHeight;
+    m_viewport.MinDepth = 0.0f;
+    m_viewport.MaxDepth = 1.0f;
+    m_viewport.TopLeftX = 0.0f;
+    m_viewport.TopLeftY = 0.0f;
+
+    //现在我们使用该描述创建视口。
+    m_deviceContext->RSSetViewports(1, &m_viewport);
+
+    //现在我们来创建投影矩阵。投影矩阵用于将3D场景转换为我们之前创建的2D视口空间。我们需要保留这个矩阵的副本，以便我们可以将它传递给我们的着色器，用于渲染我们的场景。
+    fieldOfView = 3.141592654f / 4.0f;
+    screenAspect = (float)screenWidth / (float)screenHeight;
+
+    //创建投影矩阵。
+    m_projectionMatrix = XMMatrixPerspectiveFovLH(fieldOfView, screenAspect, screenNear, screenDepth);
+
+    //初始化世界矩阵为单位矩阵。
+    //我们还将创建另一个矩阵，称为世界矩阵。这个矩阵用于将物体的顶点转换为3D场景中的顶点。这个矩阵还将用于在3D空间中旋转、平移和缩放我们的对象。
+    //从一开始，我们将矩阵初始化为单位矩阵并在这个对象中保留它的副本。副本也需要传递给着色器进行渲染。
+    m_worldMatrix = XMMatrixIdentity();
+
+    //这就是你通常创建视图矩阵的地方。视图矩阵用于计算我们从哪里看场景的位置。你可以把它想象成一个相机，你只能通过这个相机来观察这个场景。因为它的目的，我将在以后的教程中创建一个相机类，因为逻辑上它更适合那里，现在只是跳过它。
+    
+    //我们将在Initialize函数中设置的最后一件事是一个正交投影矩阵。这个矩阵用于渲染2D元素，如屏幕上的用户界面，允许我们跳过3D渲染。在后面的教程中，当我们看到将2D图形和字体呈现到屏幕上时，您将看到使用这种方法。
+    m_orthoMatrix = XMMatrixOrthographicLH((float)screenWidth, (float)screenHeight, screenNear, screenDepth);
+
+    return true;
 
 }
+
+void D3DRender::Shutdown()
+{
+    //Shutdown函数将释放并清除Initialize函数中使用的所有指针，这非常直接。
+    //然而，在此之前，我在释放任何指针之前先调用强制交换链进入窗口模式。
+    //如果没有这样做，并且您尝试在全屏模式下释放交换链，则会抛出一些异常。因此，为了避免这种情况发生，我们总是在关闭Direct3D之前强制窗口模式。
+
+    if(m_swapChain)
+    {
+        m_swapChain->SetFullscreenState(false, NULL);
+    }
+
+    if(m_rasterState)
+    {
+        m_rasterState->Release();
+        m_rasterState = 0;
+    }
+
+    if(m_depthStencilView)
+    {
+        m_depthStencilView->Release();
+        m_depthStencilView = 0;
+    }
+
+    if(m_depthStencilState)
+    {
+        m_depthStencilState->Release();
+        m_depthStencilState = 0;
+    }
+
+    if(m_depthStencilBuffer)
+    {
+        m_depthStencilBuffer->Release();
+        m_depthStencilBuffer = 0;
+    }
+
+    if(m_renderTargetView)
+    {
+        m_renderTargetView->Release();
+        m_renderTargetView = 0;
+    }   
+
+    if(m_deviceContext)
+    {
+        m_deviceContext->Release();
+        m_deviceContext = 0;
+    }
+
+    if(m_deviceContext)
+    {
+        m_deviceContext->Release();
+        m_deviceContext = 0;
+    }
+
+    if(m_device)
+    {
+        m_device->Release();
+        m_device = 0;
+    }
+
+    if(m_swapChain)
+    {
+        m_swapChain->Release();
+        m_swapChain = 0;
+    }
+    
+}
+
+
+/*
+在D3DClass中，我有几个辅助函数。前两个是BeginScene和EndScene。
+当我们要在每帧的开始绘制一个新的3D场景时，BeginScene将被调用。
+它所做的只是初始化缓冲区，使其为空白，并准备绘制。
+另一个功能是Endscene，它告诉交换链显示我们的3D场景，一旦所有的绘图在每帧结束时完成。
+*/
+
+void D3DRender::BeginScene(float red, float green, float blue, float alpha)
+{
+    float color[4];
+
+    //设置颜色。
+    color[0] = red;
+    color[1] = green;
+    color[2] = blue;
+    color[3] = alpha;
+
+    //清除缓冲区。
+    m_deviceContext->ClearRenderTargetView(m_renderTargetView, color);
+    m_deviceContext->ClearDepthStencilView(m_depthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    
+}
+
+void D3DRender::EndScene()
+{
+    //交换链将显示我们绘制的图形。
+    if(m_vsync_enabled)
+    {
+        //如果垂直同步是开启的，我们使用交换链的同步函数。
+        m_swapChain->Present(1, 0);
+    }
+    else
+    {
+        //如果垂直同步是关闭的，我们使用交换链的立即呈现函数。
+        m_swapChain->Present(0, 0);
+    }
+}
+
+/*
+下面这些函数只是获取指向Direct3D设备和Direct3D设备上下文的指针。框架将经常调用这些辅助函数。
+*/
+
+ID3D11Device* D3DRender::GetDevice()
+{
+    return m_device;
+}
+
+ID3D11DeviceContext* D3DRender::GetDeviceContext()
+{
+    return m_deviceContext;
+}
+
+/*
+接下来的三个辅助函数将投影矩阵、世界矩阵和正字法矩阵的副本提供给调用函数。
+大多数着色器将需要这些矩阵进行渲染，所以需要有一个简单的方法让外部对象获得它们的副本。我们不会在本教程中调用这些函数，但我只是解释为什么它们在代码中。
+*/
+
+void D3DRender::GetProjectionMatrix(XMMATRIX& projectionMatrix)
+{
+    projectionMatrix = m_projectionMatrix;
+}
+
+void D3DRender::GetWorldMatrix(XMMATRIX& worldMatrix)
+{
+    worldMatrix = m_worldMatrix;
+}
+
+void D3DRender::GetOrthoMatrix(XMMATRIX& orthoMatrix)
+{
+    orthoMatrix = m_orthoMatrix;
+}
+
+/*
+这个辅助函数通过引用返回显卡的名称和显存的数量。了解显卡名称有助于在不同配置下进行调试。
+*/
+
+void D3DRender::GetVideoCardInfo(char* cardName, int& memory)
+{
+    strcpy_s(cardName, 128, m_videoCardDescription);
+    memory = m_videoCardMemory;
+}
+
+
+//最后两个辅助函数将在后面的渲染纹理教程中使用。
+
+void D3DRender::SetBackBufferRenderTarget()
+{
+    //设置渲染目标视图到后台缓冲区。
+    m_deviceContext->OMSetRenderTargets(1, &m_renderTargetView, m_depthStencilView);
+}
+
+void D3DRender::ResetViewport()
+{
+    //重置视口到默认。
+    m_deviceContext->RSSetViewports(1, &m_viewport);
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
