@@ -1,0 +1,14 @@
+//像素着色器绘制将被渲染到屏幕上的多边形上的每个像素。
+//在这个像素着色器中，它使用PixelInputType作为输入，并返回一个float4作为输出，它代表最终的像素颜色。
+//这个像素着色程序非常简单，因为我们只是告诉它将像素的颜色与颜色的输入值相同。注意，像素着色器从顶点着色器输出中获得输入。
+
+struct PixelInputType
+{
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+}
+
+float4 ColorPixelShader(PixelInputType input) : SV_TARGET
+{
+    return input.color;
+}

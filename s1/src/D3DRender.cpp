@@ -106,7 +106,7 @@ bool D3DRender::Initialize(int& screenWidth, int& screenHeight, bool vsync, HWND
     }
 
     //获取适配器描述。
-    result = adapterOutput->GetDesc(&adapterDesc);
+    result = adapter->GetDesc(&adapterDesc);
     if(FAILED(result))
     {
         return false;
@@ -379,6 +379,176 @@ bool D3DRender::Initialize(int& screenWidth, int& screenHeight, bool vsync, HWND
     m_viewport.Width = (float)screenWidth;
     m_viewport.Height = (float)screenHeight;
 
+    //设置视口。
+    m_deviceContext->RSSetViewports(1, &m_viewport);
+
+    //设置投影矩阵。
+    fieldOfView = 3.141592654f / 4.0f;
+    screenAspect = (float)screenWidth / (float)screenHeight;
+
+    //创建投影矩阵。
+    m_projectionMatrix = XMMatrixPerspectiveFovLH(fieldOfView, screenAspect, screenNear, screenDepth);
+
+    //初始化世界矩阵为单位矩阵。
+    m_worldMatrix = XMMatrixIdentity();
+
+    //创建正交投影矩阵。
+    m_orthoMatrix = XMMatrixOrthographicLH((float)screenWidth, (float)screenHeight, screenNear, screenDepth);
+
+    return true;
+
+}
+
+void D3DRender::Shutdown()
+{
+	// Before shutting down set to windowed mode or when you release the swap chain it will throw an exception.
+	if(m_swapChain)
+	{
+		m_swapChain->SetFullscreenState(false, NULL);
+	}
+
+	if(m_rasterState)
+	{
+		m_rasterState->Release();
+		m_rasterState = 0;
+	}
+
+	if(m_depthStencilView)
+	{
+		m_depthStencilView->Release();
+		m_depthStencilView = 0;
+	}
+
+	if(m_depthStencilState)
+	{
+		m_depthStencilState->Release();
+		m_depthStencilState = 0;
+	}
+
+	if(m_depthStencilBuffer)
+	{
+		m_depthStencilBuffer->Release();
+		m_depthStencilBuffer = 0;
+	}
+
+	if(m_renderTargetView)
+	{
+		m_renderTargetView->Release();
+		m_renderTargetView = 0;
+	}
+
+	if(m_deviceContext)
+	{
+		m_deviceContext->Release();
+		m_deviceContext = 0;
+	}
+
+	if(m_device)
+	{
+		m_device->Release();
+		m_device = 0;
+	}
+
+	if(m_swapChain)
+	{
+		m_swapChain->Release();
+		m_swapChain = 0;
+	}
+
+	return;
+}
+
+void D3DRender::BeginScene(float red, float green, float blue, float alpha)
+{
+	float color[4];
+
+
+	// Setup the color to clear the buffer to.
+	color[0] = red;
+	color[1] = green;
+	color[2] = blue;
+	color[3] = alpha;
+
+	// Clear the back buffer.
+	m_deviceContext->ClearRenderTargetView(m_renderTargetView, color);
+    
+	// Clear the depth buffer.
+	m_deviceContext->ClearDepthStencilView(m_depthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+	return;
+}
+
+
+void D3DRender::EndScene()
+{
+	// Present the back buffer to the screen since rendering is complete.
+	if(m_vsync_enabled)
+	{
+		// Lock to screen refresh rate.
+		m_swapChain->Present(1, 0);
+	}
+	else
+	{
+		// Present as fast as possible.
+		m_swapChain->Present(0, 0);
+	}
+
+	return;
+}
+
+ID3D11Device* D3DRender::GetDevice()
+{
+	return m_device;
+}
+
+
+ID3D11DeviceContext* D3DRender::GetDeviceContext()
+{
+	return m_deviceContext;
+}
+
+void D3DRender::GetProjectionMatrix(XMMATRIX& projectionMatrix)
+{
+	projectionMatrix = m_projectionMatrix;
+	return;
+}
+
+
+void D3DRender::GetWorldMatrix(XMMATRIX& worldMatrix)
+{
+	worldMatrix = m_worldMatrix;
+	return;
+}
+
+
+void D3DRender::GetOrthoMatrix(XMMATRIX& orthoMatrix)
+{
+	orthoMatrix = m_orthoMatrix;
+	return;
+}
+
+void D3DRender::GetVideoCardInfo(char* cardName, int& memory)
+{
+	strcpy_s(cardName, 128, m_videoCardDescription);
+	memory = m_videoCardMemory;
+	return;
+}
+
+void D3DRender::SetBackBufferRenderTarget()
+{
+	// Bind the render target view and depth stencil buffer to the output render pipeline.
+	m_deviceContext->OMSetRenderTargets(1, &m_renderTargetView, m_depthStencilView);
+
+	return;
+}
+
+
+void D3DRender::ResetViewport()
+{
+	// Set the viewport.
+	m_deviceContext->RSSetViewports(1, &m_viewport);
+
+	return;
 }
 
 
