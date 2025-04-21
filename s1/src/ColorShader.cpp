@@ -299,3 +299,23 @@ bool ColorShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, XMMATR
 
     return true;
 }
+
+//RenderShader是Render函数中第二个调用的函数。SetShaderParameters在此之前被调用，以确保着色器参数设置正确。
+//该函数的第一步是在输入汇编程序中将输入布局设置为活动状态。这让GPU知道顶点缓冲区中数据的格式。
+//第二步是设置顶点着色器和像素着色器，我们将使用它来渲染这个顶点缓冲。
+//一旦设置了着色器，我们就可以使用D3D设备上下文调用DrawIndexed DirectX 11函数来渲染三角形。一旦这个函数被调用，它将渲染绿色三角形。
+VOID ColorShader::RenderShader(ID3D11DeviceContext* deviceContext, int indexCount)
+{
+
+    //设置输入布局。
+    deviceContext->IASetInputLayout(m_layout);
+
+    //设置顶点着色器和像素着色器作为当前着色器。
+    deviceContext->VSSetShader(m_vertexShader, NULL, 0);
+    deviceContext->PSSetShader(m_pixelShader, NULL, 0);
+
+    deviceContext->DrawIndexed(indexCount, 0, 0);
+
+}
+    
+
