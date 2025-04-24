@@ -1,0 +1,42 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/include",
+                "E:/Windows Kits/10/Include/10.0.22621.0/ucrt",
+                "E:/Windows Kits/10/Include/10.0.22621.0/shared",
+                "E:/Windows Kits/10/Include/10.0.22621.0/um",
+                "E:/Windows Kits/10/Include/10.0.22621.0/winrt",
+                "E:/visual_studio/Community/VC/Tools/MSVC/14.43.34808/include",
+                "E:/visual_studio/Community/VC/Tools/MSVC/14.43.34808/atlmfc/include"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "WIN32_LEAN_AND_MEAN",
+                "NOMINMAX"
+            ],
+            "windowsSdkVersion": "10.0.22621.0",
+            "compilerPath": "E:/visual_studio/Community/VC/Tools/MSVC/14.43.34808/bin/Hostx64/x64/cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-msvc-x64",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}",
+                    "E:/Windows Kits/10/Include/10.0.22621.0/ucrt",
+                    "E:/Windows Kits/10/Include/10.0.22621.0/shared",
+                    "E:/Windows Kits/10/Include/10.0.22621.0/um",
+                    "E:/Windows Kits/10/Include/10.0.22621.0/winrt",
+                    "E:/visual_studio/Community/VC/Tools/MSVC/14.43.34808/include"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            }
+        }
+    ],
+    "version": 4
+} 

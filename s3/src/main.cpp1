@@ -1,0 +1,22 @@
+#include <windows.h>
+
+//窗口过程函数，用于处理Windows在程序运行期间发送给我们的消息
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+//Windows程序入口
+//WINAPI: 是Windows API的缩写，表示Windows应用程序的入口点，他的作用是颠倒参数的顺序。参数通常是从左往右压入堆栈，而WINAPI颠倒顺序，从右往左压入堆栈。
+//hInstance: 当前应用程序实例的句柄
+//hPrevInstance: 当前应用的前一个应用程序实例的句柄，在Win32中，这个参数总是为0
+//lpCmdLine: 命令行参数，字符串指针，指向命令行参数
+//nCmdShow: 窗口显示方式，通常为0，这个参数可能要求将窗口最大化或最小化或正常显示，甚至打开一个在后台的窗口
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
+    //MessageBoxW: 显示一个消息弹框，W表示宽字符，L表示长字符，即Unicode字符
+    //他的原型是 MessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType)
+    //hWnd: 窗口句柄，NULL表示当前应用程序的主窗口
+    //lpText: 消息框的内容，L表示长字符，即Unicode字符
+    //lpCaption: 消息框的标题，L表示长字符，即Unicode字符
+    //uType: 消息框的类型，MB_OK表示一个确定按钮
+    MessageBoxW(NULL, L"Hello, World!", L"Hello", MB_OK);
+    return 0;
+}

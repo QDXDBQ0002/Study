@@ -1,0 +1,221 @@
+#include <windows.h>
+#include <tchar.h>
+
+//https://blog.csdn.net/hjc132/article/details/104781000
+//窗口过程函数，用于处理Windows在程序运行期间发送给我们的消息
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+//创建窗口的重点是注册窗口类(RegisterClassEx)和创建窗口(CreateWindowEx),然后再显示窗口(ShowWindow)，
+//最后进入消息循环(GetMessage)，在消息循环中，根据消息类型进行处理，
+
+/*
+    1. 注册窗口类(RegisterClassEx)
+    窗口类结构体(WNDCLASSEX)
+    窗口类结构体是Windows系统中用于描述窗口的属性，包括窗口的样式、窗口过程函数、光标、背景画刷、图标、小图标等。
+    窗口类结构体的大小(cbSize)，窗口类的样式(style)，窗口过程函数(lpfnWndProc)，
+    窗口类名称(lpszClassName)，窗口类图标(hIcon)，窗口类小图标(hIconSm)，窗口类背景画刷(hbrBackground)，
+    窗口类光标(hCursor)，窗口类菜单(hMenu)，窗口类实例句柄(hInstance)，窗口类创建参数(lpParam)。
+*/
+/*
+    2. 创建窗口(CreateWindowEx)
+    创建窗口的函数原型为：HWND CreateWindowEx(DWORD dwExStyle, LPCTSTR lpClassName, LPCTSTR lpWindowName, DWORD dwStyle, 
+    int x, int y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam)
+
+    创建窗口的函数的作用是创建一个窗口，并返回一个窗口句柄(HWND)，
+    第一个参数dwExStyle: 窗口的扩展样式，这个参数是第四个参数dwStyle的扩展，只是为窗口添加了一些额外的样式，默认填0
+    第二个参数lpClassName: 窗口类名称，
+    第三个参数lpWindowName: 窗口标题，
+    第四个参数dwStyle: 窗口的风格，这个参数可以为窗口定义各种选项，比如窗口的大小、位置、是否可以调整大小、是否可以移动等
+    第五个参数x: 窗口的左上角坐标，
+    第六个参数y: 窗口的左上角坐标，
+    第七个参数nWidth: 窗口的宽度，
+    第八个参数nHeight: 窗口的高度，
+    第九个参数hWndParent: 父窗口句柄，用于告诉Windows哪个窗口是当前窗口的父窗口，父窗口指包含了当前窗口的窗口，
+    第十个参数hMenu: 菜单栏句柄，
+    第十一个参数hInstance: 当前应用程序实例的句柄，
+    第十二个参数lpParam: 如果要创建多个窗口，可以传递一个指向窗口创建参数的指针，这里我们不需要传递任何参数，所以传入NULL
+    HWND: 窗口句柄，用于标识窗口
+*/
+
+/*
+    3. 显示窗口(ShowWindow)
+    显示窗口的函数原型为：BOOL ShowWindow(HWND hWnd, int nCmdShow)
+    显示窗口的函数的作用是显示窗口，并返回一个布尔值，
+    第一个参数hWnd: 窗口句柄，使用刚刚创建的窗口的句柄
+    第二个参数nCmdShow: 窗口的显示方式，
+*/
+
+/*
+    4.处理Windows事件和消息
+    创建窗口后，我们需要保持窗口运行，这样才能与他进行交互，如果我们什么都不做，只在WinMain中创建窗口，然后就退出了，那么窗口就会一闪而过，
+    所以我们需要进入消息循环，在消息循环中，根据消息类型进行处理，
+    当Windows向我们传递消息时，消息是放在事件队列中的，我们用GetMessage函数从事件队列中获取消息，
+    如果GetMessage返回0，则表示窗口被关闭，如果返回-1，则表示获取消息失败，
+    如果返回大于0，则表示获取消息成功，
+    获取到消息后，我们用TranslateMessage函数将虚拟键消息转换为字符消息，
+    然后用DispatchMessage函数将消息分发给窗口过程函数，然后运行相应的代码作为消息结果
+
+    getmessage函数原型为：BOOL GetMessage(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax)
+    其作用时从消息队列中获取消息，并将其存储在lpMsg指向的MSG结构体中，他总是返回true，除非程序将要退出，才会返回false
+    1. 第一个参数lpMsg: 指向一个MSG结构体，用于存储获取到的消息
+    2. 第二个参数hWnd: 窗口句柄，表示消息来自于哪个窗口，null表示获取的下一条消息可以来自任意窗口
+    3. 第三个参数wMsgFilterMin: 消息过滤器的最小值，通常为0
+    4. 第四个参数wMsgFilterMax: 消息过滤器的最大值，通常为0
+    
+    translatemessage函数原型为：BOOL TranslateMessage(const MSG *lpMsg)
+    其作用是将虚拟键消息转换为字符消息，并存储在lpMsg指向的MSG结构体中，
+    1. 第一个参数lpMsg: 指向一个MSG结构体，用于存储获取到的消息 
+    
+    dispatchmessage函数原型为：LRESULT DispatchMessage(const MSG *lpMsg)
+    其作用是将消息分发给窗口过程函数，并返回消息处理函数的返回值，
+    1. 第一个参数lpMsg: 指向一个MSG结构体，用于存储获取到的消息
+*/
+/*
+    windowsproc函数原型为：LRESULT WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+    其作用是处理Windows在程序运行期间发送给我们的消息，
+    1. 第一个参数hwnd: 窗口句柄，表示消息来自于哪个窗口
+    2. 第二个参数uMsg: 消息类型
+    3. 第三个参数wParam: 消息参数
+    4. 第四个参数lParam: 消息参数
+    在本案例中，我们处理了WM_DESTROY消息，当窗口被关闭时，会发送WM_DESTROY消息，因此，当窗口关闭时，我们以执行清理应用程序所需的任何操作，然后返回0，表示已清除所有内容
+    PostQuitMessage函数原型为：void PostQuitMessage(int nExitCode),这个函数会发送一个WM_QUIT消息，并指定一个退出代码，这里我们传入0，向windows返回一个0，表示正常退出，
+    如果传入其他值，Windows将无法处理，表示异常退出，
+    DefWindowProc函数原型为：LRESULT DefWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+    其作用是处理未处理的消息，如果消息未处理，则返回0，如果消息已处理，则返回其他值，
+    1. 第一个参数hwnd: 窗口句柄，表示消息来自于哪个窗口
+    2. 第二个参数uMsg: 消息类型
+    3. 第三个参数wParam: 消息参数
+    4. 第四个参数lParam: 消息参数
+    
+*/
+
+
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
+    //创建窗口
+    //HWND: 窗口句柄，用于标识窗口
+    HWND hwnd;
+
+    //注册窗口类
+    //WNDCLASSEX: 窗口类结构体，用于描述窗口的属性
+    WNDCLASSEX wc;
+
+    //初始化窗口类结构体,
+    //ZeroMemory函数的原型为：void ZeroMemory(void *Destination, size_t Length)
+    //ZeroMemory函数的作用是将整个内存块初始化为null，第一个参数*Destination表示内存块的起始地址，第二个参数Length是需要初始化的内存块的大小
+    ZeroMemory(&wc, sizeof(WNDCLASSEX));
+
+    //设置窗口类结构体的属性
+    //cbSize: 窗口类结构体的大小
+    wc.cbSize = sizeof(WNDCLASSEX);
+
+    //style: 窗口的风格
+    //CS_HREDRAW | CS_VREDRAW: 他的意思是当窗口的水平尺寸变化时进行重绘，当窗口的垂直尺寸变化时进行重绘
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+
+    //lpfnWndProc: 窗口过程函数，用于处理Windows在程序运行期间发送给我们的消息
+    //当Windows收到一个消息时，会调用窗口过程函数，并把消息传递给窗口过程函数
+    wc.lpfnWndProc = WindowProc;
+
+    //hInstance: 当前应用程序实例的句柄
+    wc.hInstance = hInstance;
+
+    //hCursor: 光标
+    //IDC_ARROW: 箭头光标
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+
+    //hbrBackground: 背景画刷
+    //COLOR_WINDOW: 窗口的背景颜色
+    wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
+
+    //lpszClassName: 窗口类的名称
+    wc.lpszClassName = _T("WindowClass");
+
+    //hIcon: 图标
+    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+
+    //hIconSm: 小图标
+    wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+
+    //注册窗口类
+    //RegisterClassEx: 注册窗口类
+    //RegisterClassEx函数的原型为：ATOM RegisterClassEx(const WNDCLASSEX *lpWndClass)
+    //RegisterClassEx函数的作用是注册一个窗口类，并返回一个窗口类标识符(ATOM)，我们传入一个窗口类结构体(WNDCLASSEX)，剩下的工作交给Windows系统了
+    RegisterClassEx(&wc);
+
+    //创建窗口
+    //CreateWindowEx: 创建窗口
+    //NULL: 父窗口句柄
+    //L"WindowClass": 窗口类的名称
+    //L"Hello, World!": 窗口的标题
+    //WS_OVERLAPPEDWINDOW: 窗口的风格,WS_OVERLAPPEDWINDOW 是一个组合风格，表示一个重叠窗口，具有标题栏、系统菜单、最小化按钮、最大化按钮、关闭按钮等。
+    //300, 300: 窗口的左上角坐标
+    //800, 600: 窗口的宽度和高度
+    //NULL, NULL: 父窗口句柄和菜单句柄
+    //hInstance: 当前应用程序实例的句柄
+    //NULL: 创建窗口时，不需要传递任何参数
+    hwnd = CreateWindowEx(0, _T("WindowClass"), _T("Hello, World!"), WS_OVERLAPPEDWINDOW, 300, 300, 800, 600, NULL, NULL, hInstance, NULL);
+
+    //显示窗口
+    //ShowWindow: 显示窗口
+    //hwnd: 窗口句柄
+    //nCmdShow: 窗口的显示方式
+    ShowWindow(hwnd, nCmdShow);
+
+    //消息循环
+    //消息循环是Windows程序的核心，用于处理Windows在程序运行期间发送给我们的消息
+    
+    //MSG是一种结构体，其中包含了单个事件消息的所有数据。通常不需要直接访问这个结构体的内容
+    //其中成员有：
+    //hwnd: 消息所属的窗口句柄
+    //message: 消息类型
+    //wParam: 消息参数 包含有关消息的其他信息，具体内容取决于发送的消息
+    //lParam: 消息参数 包含有关消息的其他信息，具体内容取决于发送的消息，只是包含了更多信息
+    //time: 消息发生的时间
+    //pt: 消息发生的位置 包含发布消息时鼠标的明确位置，用屏幕坐标表示
+    MSG msg;
+
+    //GetMessage: 获取消息
+    //&msg: 消息结构体,用于存储获取到的消息
+    //NULL: 窗口句柄
+    //0: 消息过滤器,0表示不进行消息过滤,其他值表示消息过滤器
+    //0: 消息处理函数,0表示不进行消息处理,其他值表示消息处理函数
+    while (GetMessage(&msg, NULL, 0, 0))
+    {
+        //TranslateMessage: 翻译消息，将虚拟键消息转换为字符消息
+        //&msg: 消息结构体
+        TranslateMessage(&msg);
+
+        //DispatchMessage: 分发消息，将消息分发给窗口过程函数
+        //&msg: 消息结构体
+        DispatchMessage(&msg);
+    }  
+    
+    //返回消息处理函数的返回值,0表示正常退出,其他值表示异常退出
+    return msg.wParam;
+}
+
+//窗口过程函数，用于处理Windows在程序运行期间发送给我们的消息
+//HWND hwnd: 窗口句柄
+//UINT uMsg: 消息类型
+//WPARAM wParam: 消息参数
+//LPARAM lParam: 消息参数
+//LRESULT: 消息处理函数的返回值
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    //根据消息类型进行处理，uMsg 是消息类型，wParam 和 lParam 是消息参数，
+    //uMsg包括WM_DESTROY、WM_PAINT、WM_KEYDOWN、WM_MOUSEMOVE等，分别是窗口关闭、窗口重绘、键盘按下、鼠标移动等消息
+    switch (uMsg)
+    {
+        case WM_DESTROY:
+            //PostQuitMessage: 发送退出消息
+            //0: 退出消息的参数
+            PostQuitMessage(0);
+            return 0;
+        default:
+            //DefWindowProc: 默认窗口过程函数，用于处理未处理的消息
+            return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    }
+}
+
