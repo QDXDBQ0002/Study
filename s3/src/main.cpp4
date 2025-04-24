@@ -1,0 +1,86 @@
+#include <windows.h>
+#include <tchar.h>
+
+/*
+    GetMessage()存在一个缺陷，如果消息队列中没有消息，它会一直等待，直到有消息为止。而PeekMessage()不会等待，它会立即返回。
+    对于每帧都需要进行渲染的游戏来说，PeekMessage()是一个更好的选择。
+*/
+/*
+    PeekMessage() 函数从消息队列中获取消息，如果消息队列中没有消息，他不会等待，会立即返回。
+    其原型为：
+    BOOL PeekMessage(
+        LPMSG lpMsg,
+        HWND hWnd,
+        UINT wMsgFilterMin,
+        UINT wMsgFilterMax,
+        UINT wRemoveMsg
+    )
+    其前四个参数与GetMessage()相同，第五个参数wRemoveMsg用于指定消息的处理方式。
+    如果wRemoveMsg为PM_REMOVE，则消息从消息队列中移除。
+    如果wRemoveMsg为PM_NOREMOVE，则消息不会从消息队列中移除。
+    如果wRemoveMsg为PM_NOYIELD，则消息不会导致线程进入等待状态。
+*/
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
+{
+    WNDCLASSEX wc;
+
+    ZeroMemory(&wc,sizeof(WNDCLASSEX));
+
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc = WindowProc;
+    wc.hInstance = hInstance;
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
+    wc.lpszClassName = _T("WindowClass");
+
+    RegisterClassEx(&wc);
+
+    RECT rect = {0,0,800,600};
+
+    AdjustWindowRect(&rect,WS_OVERLAPPEDWINDOW,FALSE);
+
+    HWND hwnd = CreateWindowEx(0,_T("WindowClass"),_T("Hello, World!"),WS_OVERLAPPEDWINDOW,300,300,rect.right-rect.left,rect.bottom-rect.top,NULL,NULL,hInstance,NULL);
+
+    ShowWindow(hwnd,nCmdShow);
+    
+    MSG msg;
+    while(true)
+    {
+        if(PeekMessage(&msg,NULL,0,0,PM_REMOVE) )
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            if(msg.message == WM_QUIT)
+            {
+                break;
+            }
+        }
+        else
+        {
+            // 渲染
+        }
+    }
+    
+    return msg.wParam;
+
+}
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch(uMsg)
+    {
+        case WM_DESTROY:
+        {
+            PostQuitMessage(0);
+            return 0;
+        }
+        default:
+        {
+            return DefWindowProc(hwnd,uMsg,wParam,lParam);
+        }
+    }
+}

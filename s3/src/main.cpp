@@ -1,70 +1,19 @@
 /*
-    窗口尺寸和客户端尺寸
-    窗口尺寸：窗口的实际尺寸，包括标题栏、边框、菜单栏、工具栏等
-    客户端尺寸：窗口的实际内容区域，不包括标题栏、边框、菜单栏、工具栏等
- */
-/*
-    与其先设置窗口尺寸然后调整客户端尺寸，不如先设置客户端尺寸然后调整窗口尺寸，为此，我们需要在创建窗口之前使用AdjustWindowRect函数
-    AdjustWindowRect函数原型为：BOOL AdjustWindowRect(LPRECT lpRect, DWORD dwStyle, BOOL bMenu)
-    其作用是获取客户端区域的尺寸和位置，然后计算必要的窗口尺寸和位置
-    1. 第一个参数lpRect: 指向一个RECT结构体，其包含所需的客户端区域的坐标，调用改函数后，lpRect的坐标会被修改为窗口的尺寸和位置
-    2. 第二个参数dwStyle: 窗口样式，如WS_OVERLAPPED、WS_CAPTION、WS_SYSMENU等，用过这个参数来确定窗口边框的大小
-    3. 第三个参数bMenu: 是否包含菜单栏，如果包含菜单栏，则传入true，否则传入false
+    https://blog.csdn.net/hjc132/article/details/104826473
+    DirectX图形基础架构(DirectX Graphics Infrastructure,DXGI)
+    DXGI是是一个组件，他是所有最新DirectX版本中图形功能的基础。
+    它提供了以下功能：例如在屏幕上显示图像，找出显示器和显卡可以显示的分辨率
+    DXGI其实不是Directx3D的一部分，他是Direct3D和其他图形组件的基础，充当Direct3D和硬件之间的中介。
+    有很多直接处理DXGI的方法，但是我们并不需要涉及这些方法。重要的是要知道这个组件的存在，因为Direct3D的某些部分专门处理DXGI
 */
+/*
+    交换链(Swap Chain)
+    GPU在其内存中包含了一个指向像素缓冲区的指针，该缓冲区存储了屏幕上显示的图像。当我们需要渲染时，GPU会更新这个缓冲区数组，并将其内容显示在屏幕上。
+    当这里存在一个问题，因为大多数显示器的刷新速率是60HZ到120HZ，达不到实时渲染的刷新速度，如果正在刷新显示器的时候，另外一个模型被渲染到GPU的缓冲区中，
+    那么该缓冲区中的旧数据就会被覆盖，最终在屏幕上显示的图像被分成两部分，一部分是旧数据，另一部分是新数据，这种现象被称为撕裂。
+    为了防止这种现象，DXGI实现了一种称为交换的机制，DXGI不会直接将渲染后的数据直接放在前缓冲区上(显示在屏幕上的缓冲区)，
+    而是将渲染后的数据存储在一个称为后备缓冲区的内存区域中。所有的图像首先绘制在后缓冲区中，绘制完成后，DXGI将后缓冲区更新到前缓冲区，并丢弃前缓冲区的旧图像
+    但是这样只是在一定程度上扩展了缓冲区的空间，但仍然存在撕裂的现象，因为在显示器刷新时，前缓冲还是可能发生图像传输(GPU的速度远比显示器快)。为了避免这种现象，
+    也就是使这个速度变快，DXGI为前后缓冲区设置了一个指针，并简单地交换指针，而不是交换缓冲区中的数据，可以减少撕裂的现象。
 
-#include <windows.h>
-#include <tchar.h>
-
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
-{
-    WNDCLASSEX wc;
-    ZeroMemory(&wc, sizeof(WNDCLASSEX));
-
-    wc.cbSize = sizeof(WNDCLASSEX);
-    wc.style = CS_HREDRAW | CS_VREDRAW;
-    wc.lpfnWndProc = WindowProc;
-    wc.hInstance = hInstance;
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
-    wc.lpszClassName = _T("WindowClass");
-
-    RegisterClassEx(&wc);
-
-    //创建了一个RECT结构体，并初始化其坐标为(0, 0)，宽度为800，高度为600
-    RECT rect = {0, 0, 800, 600};
-    //AdjustWindowRect函数会根据窗口样式和菜单栏的存在与否，调整RECT结构体的坐标和尺寸，使其适应窗口的实际尺寸
-    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
-
-    HWND hwnd = CreateWindowEx(0, _T("WindowClass"), _T("Hello, World!"), WS_OVERLAPPEDWINDOW, 300, 300, rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, hInstance, NULL);
-
-    ShowWindow(hwnd, nCmdShow);
-
-    //消息循环
-    MSG msg;
-    while (GetMessage(&msg, NULL, 0, 0))
-    {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-
-    return msg.wParam;
-}
-
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    switch (uMsg)
-    {
-        case WM_DESTROY:
-        {
-            PostQuitMessage(0);
-            return 0;
-        }
-        default:
-        {
-            return DefWindowProc(hwnd, uMsg, wParam, lParam);
-        }
-    }
-    
-}
+*/
