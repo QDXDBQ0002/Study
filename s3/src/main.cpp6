@@ -1,0 +1,146 @@
+/*
+    COM
+    COM是Component Object Model的缩写，是微软公司提出的一种用于软件组件的二进制接口标准。它允许不同的应用程序和组件之间进行通信和交互。
+    他是一种创建非常高级对象的方法，COM像乐高一样，通过插拔式组件来构建对象。
+    DirectX就是一系列COM对象，其中之一就是Direct3D，D3D其实就是一个COM对象，其中有包含了其他的COM对象，最终，他包含了运行2D和3D图像所需的一切软件和硬件。
+    由于Direct3D已经存储在类中，因此我们可以通过箭头访问运算符来访问其中的CreateRenderTargetView方法/Release()方法
+    device -> CreateRenderTargetView()
+    device -> Release()
+    即使COM隐藏了很多细节，但我们仍然需要了解一下四件事情：1.COM对象就是一个类或者一组类，这些类通过接口控制。一个接口就是一组函数，这些函数可以很好的控制COM对象。
+    就像上面的示例一样， "device"就是一个COM对象，并且有函数进行控制。2.每种类型的COM对象都有一个唯一的ID，我们有时候需要在代码中使用这个ID。
+    3.使用COM对象操作完成之后，必须调用Ｒｅｌｅａｓｅ（）函数来释放内存并关闭线程。4.COM对象很容易识别，因为他们通常使用＂Ｉ＂开头，如＂ID3D10Device＂
+*/
+
+#include <Windows.h>
+#include <windowsx.h>
+#include <tchar.h>
+#include <d3d11.h>
+#include <d3dcompiler.h>
+
+//#param comment 指令将某些信息放入到想哭的目标文件中，第一个参数 lib 表示我们要向项目中添加库文件，第二个参数指定要添加的文件名称
+#pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "d3dcompiler.lib")
+
+IDXGISwapChain* swapChain; //指向交换链接口的指针，用于切换前后缓冲区，注意，这个对象不属于D3D对象
+ID3D11Device* device;  //指向Direct3D设备接口的指针，设备在D3D中的一个对象，是视频适配器的抽象表示，
+ID3D11DeviceContext* deviceContext; //指向Direct3D设备上下文的指针，这个对象主要用于设置如何渲染图像，以及渲染图形
+ID3D11RenderTargetView* renderTargetView; //指向渲染目标视图的指针，渲染目标视图是一个D3D对象，用于在交换链中渲染图像;这是一个简单的COM对象，他在显存中维护一个位置，供我们渲染使用，
+
+void InitD3D(HWND hwnd); //设置并初始化D3D
+void CleanD3D(void); //关闭D3D并释放内存
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
+    WNDCLASSEX wc;
+    ZeroMemory(&wc, sizeof(WNDCLASSEX)); //清空结构体
+    wc.cbSize = sizeof(WNDCLASSEX); //设置结构体大小
+    wc.lpfnWndProc = WindowProc; //设置窗口过程函数
+    wc.hInstance = hInstance; //设置实例句柄
+    wc.lpszClassName = _T("WindowClass"); //设置窗口类名称
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW); //设置光标
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); //设置窗口背景颜色
+    RegisterClassEx(&wc); //注册窗口类
+
+    RECT rect = {0, 0, 800, 600}; //设置窗口大小
+    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, false); //调整窗口大小
+    HWND hwnd = CreateWindowEx(0, _T("WindowClass"), _T("Direct3D 11 Window"), WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+        0, 0, rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, hInstance, NULL); //创建窗口
+    ShowWindow(hwnd, nCmdShow);
+    InitD3D(hwnd);
+    MSG msg;
+    while(true) //获取消息并处理
+    {
+        if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);            
+            DispatchMessage(&msg); //分发消息
+            if(msg.message == WM_QUIT) //如果消息是退出消息，则退出循环
+            {
+                break;
+            }
+            else
+            {
+
+            }
+        }
+    }
+    CleanD3D();
+    return msg.wParam;
+}
+
+void InitD3D(HWND hwnd)
+{
+    //创建一个结构体来保存有关交换链的信息
+    DXGI_SWAP_CHAIN_DESC scd;
+    //使用ZeroMemory函数将整个结构体快速初始化为null
+    ZeroMemory(&scd, sizeof(DXGI_SWAP_CHAIN_DESC)); //清空结构体
+    
+    scd.BufferCount = 1; //设置交换链的后缓冲区数量,这里设置为1
+    scd.BufferDesc.Format = DXGI_FORMAT_R8G8_B8G8_UNORM; //缓冲区每个格子使用32位存储颜色
+
+    //DXGI_USAGE_RENDER_TARGET_OUTPUT 将图形绘制到后缓冲区时使用这个值
+    //DXGI_USAGE_SHARED 此值允许缓冲区在多个设备对象之间共享
+    //可以通过或运算设置多个值
+    scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; //交换链如何使用，这里设置为渲染目标输出
+    scd.OutputWindow = hwnd; //设置交换链使用的输出窗口
+
+    //多重采样，如MSAA
+    scd.SampleDesc.Count = 4;  //设置多重采样的数量，也就意味着一个像素有4个采样点
+    scd.Windowed = TRUE; //设置显示窗口为窗口模式
+
+    //使用SCD结构体中的信息来创建设备、设备上下文和交换链
+    /*这个方法的原型是HRESULT D3D11CreateDeviceAndSwapChain(
+        IDXGIAdapter* pAdapter, 指示D3D使用什么图形适配器。图形适配器通常是指GPU以及显存和数模转换器等。我们通常让DXGI来解决这个问题，为了高数量让DXGI来解决这个问题，所以我们传入NULL，表示使用默认适配器
+        D3D_DRIVER_TYPE DriverType, 用于确定D3D是使用软件渲染还是硬件渲染。我们可以使用很多标志来确定这一点。这里我们选择了使用硬件来渲染
+        HMODULE Software, //指向软件渲染DLL的句柄。他与上一个参数D3D_DRIVER_TYPE_HARDWARE一同使用，以设置软件渲染代码，非常慢，不适用
+        UINT Flags, //此参数是一个标志，用于设置D3D运行方式，这些标志可以进行或运算
+        const D3D_FEATURE_LEVEL* pFeatureLevels, //此参数用于创建功能列表，此列表告诉D3D我们期望程序使用哪些功能，对我们而言，我们需要使用D3D11的显卡，因此不需要使用此参数，所以设为null
+        UINT FeatureLevels, //此参数指示列表中有多少个功能级别，我们直接设置为null即可
+        UINT SDKVersion, //此参数始终相同 D3D11_SDK_VERSION.每台机器通常具有不同次要版本的Directx，这个参数告诉了我们开发的游戏是为了哪个版本的用户DirectX。在不同版本的SDK中，此值返回不同的数字，我们不需要改，只需要使用D3D11_SDK_VERSION就能正常工作
+        const DXGI_SWAP_CHAIN_DESC* pSwapChainDesc,　//这是指向交换链描述结构的指针
+        IDXGISwapChain** ppSwapChain, //指向交换链对象的指针，这个函数会为我们创建交换链对象，并将对象的地址存入这个指针中
+        ID3D11Device** ppDevice, //指向设备对象的指针
+        D3D_FEATURE_LEVEL* pFeatureLevel, //有骨干功能级别的更多信息。这是指向功能级别的指针，通常我们不需要使用这个参数，所以设为null
+        ID3D11DeviceContext** ppImmediateContext //指向设备上下文对象的指针
+        ); 
+    */
+    D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, NULL, 0,
+        D3D11_SDK_VERSION, &scd, &swapChain, &device, NULL, &deviceContext);
+    
+    ID3D11Texture2D* backBuffer; //指向后缓冲区的指针
+    swapChain -> GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&backBuffer); //获取后缓冲区
+
+    device -> CreateRenderTargetView(backBuffer, NULL, &renderTargetView); //创建渲染目标视图
+
+    backBuffer -> Release(); //释放后缓冲区
+
+    deviceContext -> OMSetRenderTargets(1, &renderTargetView, NULL); //设置渲染目标视图
+
+    
+
+}
+
+//释放
+void CleanD3D(void)
+{
+    //释放交换链
+    swapChain->Release();
+    //释放设备上下文
+    deviceContext->Release();
+    //释放设备
+    device->Release();
+}
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    switch(msg) //处理消息
+    {
+        case WM_DESTROY: //窗口销毁消息
+            PostQuitMessage(0); //发送退出消息
+            break;
+        default: //其他消息
+            return DefWindowProc(hwnd, msg, wParam, lParam); //默认处理消息
+    }
+    return 0;
+}
