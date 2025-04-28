@@ -1,0 +1,143 @@
+#include <Windows.h>
+#include <tchar.h>
+#include <d3d11.h>
+#include <d3dcompiler.h>
+
+#pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "d3dcompiler.lib")
+
+IDXGISwapChain* swapChain;
+ID3D11Device* device;
+ID3D11DeviceContext* context;
+ID3D11RenderTargetView* renderTargetView;
+
+LRESULT CALLBACK WindowsEventCallBack(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+void InitD3D(HWND hwnd);
+void CleanD3D();
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+
+    WNDCLASSEX wc;
+    ZeroMemory(&wc, sizeof(WNDCLASSEX));
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc = WindowsEventCallBack;
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hInstance = hInstance;
+    wc.lpszClassName = _T("WindowClass");
+    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW);
+
+    RegisterClassEx(&wc);
+
+    RECT rc = { 0, 0, 800, 600 };
+    AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
+
+    HWND hwnd = CreateWindowEx(0, _T("hello"), _T("hello world"), WS_OVERLAPPEDWINDOW, 0, 0, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
+    ShowWindow(hwnd, nCmdShow);
+    InitD3D(hwnd);
+    MSG msg;
+    while(true)
+    {
+        if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            if(msg.message == WM_QUIT)
+            {
+                break;
+            }
+        }
+        else
+        {
+
+        }
+    }
+    CleanD3D();
+    return msg.wParam;
+}
+
+LRESULT CALLBACK WindowsEventCallBack(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch(msg)
+    {
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            break;
+        default:
+            return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+    return 0;
+}
+
+void InitD3D(HWND hwnd) {
+    DXGI_SWAP_CHAIN_DESC swapChainDesc;
+    ZeroMemory(&swapChainDesc, sizeof(DXGI_SWAP_CHAIN_DESC));
+    swapChainDesc.BufferCount = 1;
+    swapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapChainDesc.OutputWindow = hwnd;
+    swapChainDesc.SampleDesc.Count = 4;
+    swapChainDesc.Windowed = TRUE;
+    D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, NULL, 0, D3D11_SDK_VERSION, &swapChainDesc, &swapChain, &device, NULL, &context);
+    
+    //在3D渲染中，纹理是图片的一个别称；ID3D11Texture2D是2D图片对象。
+    ID3D11Texture2D* backBuffer;
+    
+    //通过交换链获取后缓冲区
+    //GetBuffer函数的作用是在交换链上找到后缓冲区，并使用他创建后缓冲区纹理对象。第一个参数表示要换取的后缓冲区的编号，我们仅在该链上使用了一个后缓冲区，
+    //他就是 0 号后缓冲区，因此，第一个参数设置为0；第二个参数是 标识 ID3D11Texture2D COM对象的编号，每种类型的COM对象都有其自己的唯一ID，该ID用于获取
+    //有关他的信息。要获取此ID，需要使用__uuidof 运算符。这个运算符的具体细节不重要，我们只需要知道这样做可以让GetBuffer函数知道应该创建那种类型的对象。
+    //第三个参数是一个void指针，这个void填充了ID3D11Texture2D对象的位置，这个指针的类型必须是void，因为这里的类型可能是其他的类型的对象
+    swapChain -> GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)(&backBuffer));
+
+    //使用后缓冲地址来创建渲染目标，渲染目标renderTargetView是指向一个COM对象的指针，改对象保存了有关渲染目标的信息，
+    //这个函数创建渲染目标对象，我们在程序顶部为该对象创建了指针。第一个参数是指向纹理的指针；第二个参数是描述渲染目标的结构体，我们使用NULL来表示默认值；
+    //第三个参数是指向渲染目标的指针，创建完成后，渲染目标对象的地址会被填充到这个指针中。
+    device -> CreateRenderTargetView(backBuffer, NULL, &renderTargetView);
+    //Release函数释放所有内存并关闭COM对象使用的所有线程，后缓冲区纹理的使命已经结束，所以我们对其进行Release。
+    //注意，这不会影响后缓冲区，这里只会关闭对应的纹理对象
+    backBuffer -> Release();
+    /*
+    这个函数用于设置渲染目标，更确切的说吗，他可以设置多个渲染目标。第一个参数要设置的渲染目标的数量，同城为1，但某些情况下会更大；
+    第二个参数是指向渲染目标视图对象列表的指针，我们只有一个渲染目标试图对象，所以我们只需要将渲染目标试图对象的地址传入即可；
+    第三个参数是高级的参数，后面再说
+    */
+    context -> OMSetRenderTargets(1, &renderTargetView, NULL);
+
+
+    D3D11_VIEWPORT viewport;
+    ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
+    viewport.TopLeftX = 0;
+    viewport.TopLeftY = 0;
+    viewport.Width = 800;
+    viewport.Height = 600;
+    //设置视口，视口是渲染目标的大小和位置，视口的大小和窗口的大小相同。第一个参数是视口的数量，这里我们只需要一个；
+    //第二个参数是指向视口的指针，这里我们只需要一个视口，所以我们只需要将视口的地址传入即可
+    context -> RSSetViewports(1, &viewport);
+
+}
+
+void RenderFrame()
+{
+    float* color = new float[4];
+    color[0] = 0.0f;
+    color[1] = 0.0f;
+    color[2] = 0.0f;
+    color[3] = 1.0f;
+    //这将使用特定的颜色填充渲染目标缓冲区，函数公两个参数，第一个参数是渲染目标对象的地址，第二个参数用来指定颜色
+    context -> ClearRenderTargetView(renderTargetView, color);
+
+    //此函数实际上是显示后缓冲区上的内容，他的工作本质上就是在交换链中执行交换操作，将后缓冲区变成前缓冲区，他们两个参数都设置为0
+    swapChain -> Present(0, 0);
+}
+
+void CleanD3D() {
+    swapChain -> Release();
+    renderTargetView -> Release();
+    context -> Release();
+    device -> Release();
+    delete swapChain;
+    delete renderTargetView;
+    delete context;
+    delete device;
+}
