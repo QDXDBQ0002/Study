@@ -1,0 +1,139 @@
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 600
+
+#include <windows.h>
+#include <tchar.h>
+#include <d3d11.h>
+#include <d3dcompiler.h>
+
+#pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "d3dcompiler.lib")
+
+/*
+    要改为全屏模式，我们需要 1.修改窗口使其没有背景 2.将后缓冲区设置为特定大小 3.将DirectX设置为在某些条件下自动切换 4.修改CleanupD3D方法，使其在关闭时进行全屏关闭
+    
+    修改窗口使其没有背景
+        要删除窗口的背景，我们需要注释掉WNDCLASSEX结构的hbrBackground成员，该成员用于设置背景，这样做会使背景保持不变，这意味着在游戏开始前一两秒种
+        只显示背景而不会显示为窗口
+    将后台缓冲区设置为特定大小
+        我们要告诉DirectX我们新的屏幕分辨率，需要对DXGI_SWAP_CHAIN_DESC结构进行修改desc.BufferDesc.Width = SCREEN_WIDTH;desc.BufferDesc.Height = SCREEN_HEIGHT;
+    将DirectX设置为在某些条件下自动切换
+        desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; 用这个就行了
+    修改D3D方法，使其在关闭时进行全屏关闭
+        在全屏模式下，Direct3D实际上无法关闭，这是由于在后台发生的某些线程问题，要正确关闭，我们需要确保我们处于窗口模式。
+        只需要在CleanupD3D方法中添加swapChain->SetFullscreenState(FALSE, NULL);即可
+        SetFullscreenState函数的第一个参数时我们希望切换到的模式，false表示窗口模式，true表示全屏模式。第二个参数用于选择视频适配器，这里填null
+*/
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+void InitD3D(HWND hwnd);
+void CleanupD3D();
+void RenderFrame();
+
+IDXGISwapChain* swapChain;
+ID3D11Device* device;
+ID3D11DeviceContext* context;
+ID3D11RenderTargetView* renderTargetView;
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    WNDCLASSEX wc;
+    ZeroMemory(&wc, sizeof(WNDCLASSEX));
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc = WindowProc;
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hInstance = hInstance;
+    wc.lpszClassName = _T("FullScreen");
+    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+    // wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    RegisterClassEx(&wc);
+    RECT rect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
+    HWND hwnd = CreateWindowEx(0, _T("FullScreen"), _T("Full Screen Window"),
+        WS_OVERLAPPEDWINDOW, 0, 0,
+        rect.right - rect.left, rect.bottom - rect.top,
+        NULL, NULL, hInstance, NULL);
+    ShowWindow(hwnd, nCmdShow);
+    InitD3D(hwnd);
+    MSG msg;
+    while(true)
+    {
+        if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            if (msg.message == WM_QUIT)
+                break;
+        }
+        else
+        {
+            RenderFrame();
+        }
+    }
+    CleanupD3D();
+    return msg.wParam;
+}
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            return 0;
+    }
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+
+void InitD3D(HWND hwnd) {
+    DXGI_SWAP_CHAIN_DESC desc;
+    ZeroMemory(&desc, sizeof(desc));
+    desc.BufferCount = 1;
+    desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    desc.OutputWindow = hwnd;
+    desc.SampleDesc.Count = 1;
+    desc.Windowed = TRUE;
+    desc.BufferDesc.Width = SCREEN_WIDTH;
+    desc.BufferDesc.Height = SCREEN_HEIGHT;
+    desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+    
+    D3D11CreateDeviceAndSwapChain(
+        NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0,
+        NULL, 0, D3D11_SDK_VERSION, &desc, &swapChain,
+        &device, NULL, &context);
+
+    ID3D11Texture2D* backBuffer;
+    swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&backBuffer);
+
+    device -> CreateRenderTargetView(backBuffer, NULL, &renderTargetView);
+
+    backBuffer->Release();
+
+    context->OMSetRenderTargets(1, &renderTargetView, NULL);
+
+    D3D11_VIEWPORT viewport;
+    ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
+    viewport.Width = SCREEN_WIDTH;
+    viewport.Height = SCREEN_HEIGHT;
+    viewport.TopLeftX = 0;
+    viewport.TopLeftY = 0;
+
+    context -> RSSetViewports(1, &viewport);
+
+}
+
+void RenderFrame() 
+{
+    float clearColor[4] = { 0.0f, 0.0f, 1.0f, 1.0f };
+    context -> ClearRenderTargetView(renderTargetView, clearColor);
+    swapChain -> Present(0, 0);
+}
+
+void CleanupD3D() 
+{
+    if (renderTargetView) renderTargetView->Release();
+    if (swapChain) swapChain->Release();
+    if (context) context->Release();
+    if (device) device->Release();
+}

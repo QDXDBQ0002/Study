@@ -1,3 +1,62 @@
+
+/*
+    需要渲染三角形，需要如下几步：
+    1.告诉GPU如何渲染我们的几何
+    2.创建三角形的三个顶点
+    3.将这些顶点存储在显存中
+    4.告诉GPU如何读取这些点
+    5.渲染三角形
+*/
+
+/*
+    使用shader
+    顶点shader对每个顶点运行一次，像素shader对每个绘制的像素都运行一次
+    为了渲染图像，我们必须将某些shader架子啊到GPU。加载shader需要几个步骤：
+    1.从.shader文件中加载并编译shader
+    2.将这个两个shader封装到shader对象中
+    3.将这个两个shader都设置为活动的shader
+*/
+
+/*
+    1.从.shader文件中加载并编译shader
+    在这一步中，我们将编译顶点shader和像素shader，这是渲染所需的两个shader。要加载和编译shader，我们必须使用D3D11CompileFromFile函数。
+    这个函数有大量的参数，但其中大部分都是高级参数，可以先设置为0
+    D3DCompileFromFile()的方法原型是 
+    D3DCompileFromFile(_In_ LPCWSTR pFileName,  //shader的文件名
+                   _In_reads_opt_(_Inexpressible_(pDefines->Name != NULL)) CONST D3D_SHADER_MACRO* pDefines, //shader的宏定义
+                   _In_opt_ ID3DInclude* pInclude, //shader的包含文件
+                   _In_ LPCSTR pEntrypoint, //shader的入口函数
+                   _In_ LPCSTR pTarget, //shader的类型
+                   _In_ UINT Flags1, //shader的编译选项
+                   _In_ UINT Flags2, //shader的编译选项
+                   _Out_ ID3DBlob** ppCode, //编译后的shader,这个参数指向一个blob对象，这个对象将会用shader的编译代码填充。blob是一个精巧的COM对象，
+                   //用于存储数据缓冲区，我们可以使用GetBufferPointer()和GetBufferSize()方法来获取他的内容
+                   _Always_(_Outptr_opt_result_maybenull_) ID3DBlob** ppErrorMsgs  //编译错误信息);
+    这个函数需要一个文件名，一个shader类型和一个编译选项。我们将使用D3DCOMPILE_ENABLE_STRICTNESS选项来确保我们不会在shader中犯错误。
+    我们还将使用D3DCOMPILE_DEBUG选项来启用调试信息，这样我们就可以在调试器中查看shader的源代码。
+    他将加载shader，并找到对应的入口函数，将其编译后存入ppCode指向的ID3DBlob对象中。
+*/
+/*
+    2.将这个两个shader封装到shader对象中
+    我们将使用ID3D11Device::CreateVertexShader()和ID3D11Device::CreatePixelShader()方法来创建shader对象。
+    这两个方法的第一个参数是已编译的shader的数据地址，第二个是数据大小，第三个是一个类链接对象，第四个是一个指向ID3D11VertexShader或ID3D11PixelShader对象的指针。
+    这两个方法都需要一个ID3DBlob对象作为参数，这个对象就是我们在上一步中创建的。
+    这两个方法还需要一个ID3D11ClassLinkage对象作为参数，这个对象是一个空指针，因为我们不需要类链接。
+*/
+/*
+    3.将这个两个shader都设置为活动的shader
+    我们将使用ID3D11DeviceContext::VSSetShader()和ID3D11DeviceContext::PSSetShader()方法来设置活动的shader。
+    这两个方法的第一个参数是一个指向ID3D11VertexShader或ID3D11PixelShader对象的指针，第二个参数是一个类链接对象，第三个参数是一个标志。
+    这两个方法都需要一个ID3D11ClassLinkage对象作为参数，这个对象是一个空指针，因为我们不需要类链接。
+*/
+
+/*
+    顶点缓冲区
+    顶点就是3D空间中一个准确的位置和属性。顶点的位置是表示顶点坐标的三个数值，顶点的属性可以有很多，比如颜色、纹理坐标、法线等。
+    D3D使用一种被成为input layout(输入布局)的数据格式来表示顶点的位置和属性的布局，我们可以根据需要进行修改和设置。
+    在设置输入布局的时候，可以选择需要发送的信息，比如位置、颜色、纹理坐标等。我们可以使用D3D11_INPUT_ELEMENT_DESC结构体来描述输入布局。
+*/
+
 #include <Windows.h>
 #include <tchar.h>
 #include <d3d11.h>
@@ -6,138 +65,138 @@
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 
-IDXGISwapChain* swapChain;
-ID3D11Device* device;
-ID3D11DeviceContext* context;
-ID3D11RenderTargetView* renderTargetView;
-
-LRESULT CALLBACK WindowsEventCallBack(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 void InitD3D(HWND hwnd);
-void CleanD3D();
+void CleanupD3D();
+void RenderFrame();
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+IDXGISwapChain* g_pSwapChain = NULL;
+ID3D11Device* g_pd3dDevice = NULL;
+ID3D11DeviceContext* g_pImmediateContext = NULL;
+ID3D11RenderTargetView* g_pRenderTargetView = NULL;
 
+ID3D11VertexShader* g_pVertexShader = NULL;
+ID3D11PixelShader* g_pPixelShader = NULL;
+
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
     WNDCLASSEX wc;
     ZeroMemory(&wc, sizeof(WNDCLASSEX));
     wc.cbSize = sizeof(WNDCLASSEX);
     wc.style = CS_HREDRAW | CS_VREDRAW;
-    wc.lpfnWndProc = WindowsEventCallBack;
+    wc.lpfnWndProc = WindowProc;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hInstance = hInstance;
     wc.lpszClassName = _T("WindowClass");
-    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW);
-
     RegisterClassEx(&wc);
 
     RECT rc = { 0, 0, 800, 600 };
     AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
-
-    HWND hwnd = CreateWindowEx(0, _T("hello"), _T("hello world"), WS_OVERLAPPEDWINDOW, 0, 0, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
+    HWND hwnd = CreateWindowEx(
+        0,
+        _T("WindowClass"),
+        _T("Direct3D 11 Example"),
+        WS_OVERLAPPEDWINDOW,
+        0, 0, rc.right - rc.left, rc.bottom - rc.top,
+        NULL,
+        NULL,
+        hInstance,
+        NULL
+    );
     ShowWindow(hwnd, nCmdShow);
     InitD3D(hwnd);
     MSG msg;
     while(true)
     {
-        if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
-            if(msg.message == WM_QUIT)
-            {
+            if (msg.message == WM_QUIT)
                 break;
-            }
-        }
-        else
-        {
-
+            RenderFrame();
         }
     }
-    CleanD3D();
+    CleanupD3D();
     return msg.wParam;
 }
 
-LRESULT CALLBACK WindowsEventCallBack(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    switch(msg)
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
     {
         case WM_DESTROY:
             PostQuitMessage(0);
-            break;
-        default:
-            return DefWindowProc(hwnd, msg, wParam, lParam);
+            return 0;
     }
-    return 0;
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-void InitD3D(HWND hwnd) {
-    DXGI_SWAP_CHAIN_DESC swapChainDesc;
-    ZeroMemory(&swapChainDesc, sizeof(DXGI_SWAP_CHAIN_DESC));
-    swapChainDesc.BufferCount = 1;
-    swapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-    swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapChainDesc.OutputWindow = hwnd;
-    swapChainDesc.SampleDesc.Count = 4;
-    swapChainDesc.Windowed = TRUE;
-    D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, NULL, 0, D3D11_SDK_VERSION, &swapChainDesc, &swapChain, &device, NULL, &context);
-    
-    //在3D渲染中，纹理是图片的一个别称；ID3D11Texture2D是2D图片对象。
-    ID3D11Texture2D* backBuffer;
-    
-    //通过交换链获取后缓冲区
-    //GetBuffer函数的作用是在交换链上找到后缓冲区，并使用他创建后缓冲区纹理对象。第一个参数表示要换取的后缓冲区的编号，我们仅在该链上使用了一个后缓冲区，
-    //他就是 0 号后缓冲区，因此，第一个参数设置为0；第二个参数是 标识 ID3D11Texture2D COM对象的编号，每种类型的COM对象都有其自己的唯一ID，该ID用于获取
-    //有关他的信息。要获取此ID，需要使用__uuidof 运算符。这个运算符的具体细节不重要，我们只需要知道这样做可以让GetBuffer函数知道应该创建那种类型的对象。
-    //第三个参数是一个void指针，这个void填充了ID3D11Texture2D对象的位置，这个指针的类型必须是void，因为这里的类型可能是其他的类型的对象
-    swapChain -> GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)(&backBuffer));
+void InitD3D(HWND hwnd)
+{
+    DXGI_SWAP_CHAIN_DESC swapDesc;
+    ZeroMemory(&swapDesc, sizeof(DXGI_SWAP_CHAIN_DESC));
+    swapDesc.BufferCount = 1;
+    swapDesc.BufferDesc.Width = 800;
+    swapDesc.BufferDesc.Height = 600;
+    swapDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    swapDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapDesc.OutputWindow = hwnd;
+    swapDesc.SampleDesc.Count = 1;
+    swapDesc.Windowed = TRUE;
 
-    //使用后缓冲地址来创建渲染目标，渲染目标renderTargetView是指向一个COM对象的指针，改对象保存了有关渲染目标的信息，
-    //这个函数创建渲染目标对象，我们在程序顶部为该对象创建了指针。第一个参数是指向纹理的指针；第二个参数是描述渲染目标的结构体，我们使用NULL来表示默认值；
-    //第三个参数是指向渲染目标的指针，创建完成后，渲染目标对象的地址会被填充到这个指针中。
-    device -> CreateRenderTargetView(backBuffer, NULL, &renderTargetView);
-    //Release函数释放所有内存并关闭COM对象使用的所有线程，后缓冲区纹理的使命已经结束，所以我们对其进行Release。
-    //注意，这不会影响后缓冲区，这里只会关闭对应的纹理对象
-    backBuffer -> Release();
-    /*
-    这个函数用于设置渲染目标，更确切的说吗，他可以设置多个渲染目标。第一个参数要设置的渲染目标的数量，同城为1，但某些情况下会更大；
-    第二个参数是指向渲染目标视图对象列表的指针，我们只有一个渲染目标试图对象，所以我们只需要将渲染目标试图对象的地址传入即可；
-    第三个参数是高级的参数，后面再说
-    */
-    context -> OMSetRenderTargets(1, &renderTargetView, NULL);
-
-
+    D3D11CreateDeviceAndSwapChain(NULL, 
+                                   D3D_DRIVER_TYPE_HARDWARE, 
+                                   NULL, 
+                                   0, 
+                                   NULL, 
+                                   0, 
+                                   D3D11_SDK_VERSION, 
+                                   &swapDesc, 
+                                   &g_pSwapChain, 
+                                   &g_pd3dDevice, 
+                                   NULL, 
+                                   &g_pImmediateContext);
+    ID3D11Texture2D* pBackBuffer;
+    g_pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+    g_pd3dDevice->CreateRenderTargetView(pBackBuffer, NULL, &g_pRenderTargetView);
+    pBackBuffer->Release();
+    g_pImmediateContext->OMSetRenderTargets(1, &g_pRenderTargetView, NULL);
     D3D11_VIEWPORT viewport;
-    ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
-    viewport.TopLeftX = 0;
-    viewport.TopLeftY = 0;
     viewport.Width = 800;
     viewport.Height = 600;
-    //设置视口，视口是渲染目标的大小和位置，视口的大小和窗口的大小相同。第一个参数是视口的数量，这里我们只需要一个；
-    //第二个参数是指向视口的指针，这里我们只需要一个视口，所以我们只需要将视口的地址传入即可
-    context -> RSSetViewports(1, &viewport);
+    viewport.TopLeftX = 0;
+    viewport.TopLeftY = 0;
+    g_pImmediateContext->RSSetViewports(1, &viewport);
+}
 
+void CleanupD3D()
+{
+    g_pRenderTargetView->Release();
+    g_pSwapChain->Release();
+    g_pd3dDevice->Release();
+    g_pImmediateContext->Release();
+    g_pVertexShader->Release();
+    g_pPixelShader->Release();
 }
 
 void RenderFrame()
 {
-    float* color = new float[4];
-    color[0] = 0.0f;
-    color[1] = 0.0f;
-    color[2] = 0.0f;
-    color[3] = 1.0f;
-    //这将使用特定的颜色填充渲染目标缓冲区，函数公两个参数，第一个参数是渲染目标对象的地址，第二个参数用来指定颜色
-    context -> ClearRenderTargetView(renderTargetView, color);
-
-    //此函数实际上是显示后缓冲区上的内容，他的工作本质上就是在交换链中执行交换操作，将后缓冲区变成前缓冲区，他们两个参数都设置为0
-    swapChain -> Present(0, 0);
+    float color[4] = { 0.0f, 0.0f, 1.0f, 1.0f };
+    g_pImmediateContext->ClearRenderTargetView(g_pRenderTargetView, color);
+    g_pSwapChain->Present(0, 0);
 }
 
-void CleanD3D() {
-    swapChain -> Release();
-    renderTargetView -> Release();
-    context -> Release();
-    device -> Release();
-    delete swapChain;
-    delete renderTargetView;
-    delete context;
-    delete device;
+void InitPipeline()
+{
+    ID3D10Blob *VS, *PS;
+    D3DCompileFromFile(L"point.shader", NULL, NULL, "main", "vs_5_0", 0, 0, &VS, NULL);
+    D3DCompileFromFile(L"pixel.shader", NULL, NULL, "main", "ps_5_0", 0, 0, &PS, NULL);
+
+    g_pd3dDevice -> CreateVertexShader(VS->GetBufferPointer(), VS->GetBufferSize(), NULL, &g_pVertexShader);
+    g_pd3dDevice -> CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &g_pPixelShader);
+
+    g_pImmediateContext->VSSetShader(g_pVertexShader, NULL, 0);
+    g_pImmediateContext->PSSetShader(g_pPixelShader, NULL, 0);
 }
