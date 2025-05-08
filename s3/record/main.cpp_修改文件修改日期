@@ -1,0 +1,54 @@
+#include <windows.h>
+#include <iostream>
+
+void UpdateFileModificationTime(const char* filePath) {
+    // 打开文件
+    HANDLE hFile = CreateFileA(
+        filePath,
+        GENERIC_WRITE,
+        0,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        std::cerr << "Failed to open file. Error: " << GetLastError() << std::endl;
+        return;
+    }
+
+    // 获取当前系统时间
+    SYSTEMTIME systemTime;
+    ZeroMemory(&systemTime, sizeof(SYSTEMTIME));
+    systemTime.wYear = 2025; // 设置年份
+    systemTime.wMonth = 5; // 设置月份
+    systemTime.wDay = 7; // 设置日期
+    systemTime.wHour = 1; // 设置小时
+    systemTime.wMinute = 58; // 设置分钟
+    systemTime.wSecond = 23; // 设置秒
+
+    // 将 SYSTEMTIME 转换为 FILETIME
+    FILETIME fileTime;
+    if (!SystemTimeToFileTime(&systemTime, &fileTime)) {
+        std::cerr << "Failed to convert system time to file time. Error: " << GetLastError() << std::endl;
+        CloseHandle(hFile);
+        return;
+    }
+
+    // 设置文件的修改时间
+    if (!SetFileTime(hFile, NULL, NULL, &fileTime)) {
+        std::cerr << "Failed to set file time. Error: " << GetLastError() << std::endl;
+    } else {
+        std::cout << "File modification time updated successfully." << std::endl;
+    }
+
+    // 关闭文件句柄
+    CloseHandle(hFile);
+}
+
+int main() {
+    const char* filePath = "E:/timeStamper/LogicUnit.lua"; // 替换为你的文件路径
+    UpdateFileModificationTime(filePath);
+    return 0;
+}
